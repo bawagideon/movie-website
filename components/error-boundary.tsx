@@ -1,7 +1,6 @@
 "use client"
 
-import type React from "react"
-import { Component, type ErrorInfo, type ReactNode } from "react"
+import React, { Component, type ErrorInfo, type ReactNode } from "react"
 import { AlertCircle, RefreshCw, Home } from "lucide-react"
 import { Button } from "@/components/ui/button"
 

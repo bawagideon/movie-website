@@ -12,7 +12,7 @@ export interface AISearchInput {
   language?: string
 }
 
-export function validateAISearch(data: unknown): { valid: boolean; data?: AISearchInput; error?: string } {
+export function validateAISearch(data: unknown, description?: any): { valid: boolean; data?: AISearchInput; error?: string } {
   if (typeof data !== "object" || !data) {
     return { valid: false, error: "Request body must be an object" }
   }
