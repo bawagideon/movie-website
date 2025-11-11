@@ -3,6 +3,7 @@ import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import "./globals.css"
 import ClientLayout from "./ClientLayout"
+import { ErrorBoundary } from "@/components/error-boundary"
 
 export const metadata: Metadata = {
   title: "MovieVault - Your Movie Wishlist",
@@ -30,7 +31,9 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=yes" />
       </head>
       <body className="touch-manipulation antialiased min-h-screen bg-background text-foreground">
-        <ClientLayout>{children}</ClientLayout>
+        <ErrorBoundary>
+          <ClientLayout>{children}</ClientLayout>
+        </ErrorBoundary>
       </body>
     </html>
   )

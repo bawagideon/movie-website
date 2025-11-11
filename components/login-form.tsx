@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Loader2, Film } from "lucide-react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
+import { formatAuthError } from "@/lib/errors"
 
 export default function LoginForm() {
   const [email, setEmail] = useState("")
@@ -30,13 +31,15 @@ export default function LoginForm() {
       })
 
       if (error) {
-        setError(error.message)
+        const formattedError = formatAuthError(error)
+        setError(formattedError.message)
       } else {
         router.push("/")
         router.refresh()
       }
     } catch (err) {
-      setError("An unexpected error occurred")
+      const formattedError = formatAuthError(err)
+      setError(formattedError.message)
     } finally {
       setLoading(false)
     }
@@ -45,18 +48,25 @@ export default function LoginForm() {
   return (
     <div className="w-full max-w-md space-y-8">
       <div className="text-center">
-        <div className="flex justify-center mb-6">
+        <div className="flex justify-center mb-6" aria-hidden="true">
           <div className="bg-red-600 p-3 rounded-full">
             <Film className="h-8 w-8 text-white" />
           </div>
         </div>
-        <h2 className="text-3xl font-bold text-white">Welcome back</h2>
+        <h1 className="text-3xl font-bold text-white">Welcome back</h1>
         <p className="mt-2 text-gray-400">Sign in to your movie account</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6" aria-label="Login form">
         {error && (
-          <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg">{error}</div>
+          <div 
+            className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg" 
+            role="alert"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {error}
+          </div>
         )}
 
         <div className="space-y-4">
@@ -71,6 +81,8 @@ export default function LoginForm() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
               required
+              aria-required="true"
+              aria-invalid={error ? "true" : "false"}
               className="bg-gray-900 border-gray-700 text-white placeholder:text-gray-500 focus:border-red-500 focus:ring-red-500"
             />
           </div>
@@ -85,6 +97,8 @@ export default function LoginForm() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
               required
+              aria-required="true"
+              aria-invalid={error ? "true" : "false"}
               className="bg-gray-900 border-gray-700 text-white placeholder:text-gray-500 focus:border-red-500 focus:ring-red-500"
             />
           </div>
@@ -93,11 +107,13 @@ export default function LoginForm() {
         <Button
           type="submit"
           disabled={loading}
+          aria-busy={loading}
+          aria-label={loading ? "Signing in, please wait..." : "Sign in to your account"}
           className="w-full bg-red-600 hover:bg-red-700 text-white py-3 text-lg font-medium"
         >
           {loading ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
               Signing in...
             </>
           ) : (
@@ -107,7 +123,11 @@ export default function LoginForm() {
 
         <div className="text-center text-gray-400">
           Don't have an account?{" "}
-          <Link href="/auth/signup" className="text-red-400 hover:text-red-300 font-medium">
+          <Link 
+            href="/auth/signup" 
+            className="text-red-400 hover:text-red-300 font-medium"
+            aria-label="Go to sign up page"
+          >
             Sign up
           </Link>
         </div>

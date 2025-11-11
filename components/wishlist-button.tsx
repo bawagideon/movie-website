@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { wishlistService } from "@/lib/wishlist"
 import type { Movie } from "@/lib/tmdb"
+import type { AuthUser } from "@/lib/types"
 
 interface WishlistButtonProps {
   movie: Movie
-  user?: any
+  user?: AuthUser | null
   size?: "sm" | "default" | "lg"
   variant?: "ghost" | "outline" | "default"
 }
@@ -95,11 +96,21 @@ export function WishlistButton({ movie, user, size = "sm", variant = "ghost" }: 
       variant={variant}
       onClick={handleWishlistToggle}
       disabled={loading}
+      aria-label={
+        isInWishlist 
+          ? `Remove ${movie.title} from wishlist` 
+          : `Add ${movie.title} to wishlist`
+      }
+      aria-pressed={isInWishlist}
+      aria-busy={loading}
       className={`h-8 w-8 p-0 bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${
         isInWishlist ? "text-red-500" : ""
       }`}
     >
-      <Heart className={`h-4 w-4 ${isInWishlist ? "fill-current" : ""}`} />
+      <Heart 
+        className={`h-4 w-4 ${isInWishlist ? "fill-current" : ""}`}
+        aria-hidden="true"
+      />
     </Button>
   )
 }

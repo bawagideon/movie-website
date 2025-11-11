@@ -2,9 +2,10 @@ import { type NextRequest, NextResponse } from "next/server"
 import { searchMovies } from "@/lib/tmdb-server"
 import { validateMovieSearch } from "@/lib/validation"
 import { createErrorResponse, logError } from "@/lib/errors"
+import { generateRequestId } from "@/lib/utils"
 
 export async function GET(request: NextRequest) {
-  const requestId = crypto.randomUUID()
+  const requestId = generateRequestId()
 
   try {
     const { searchParams } = new URL(request.url)
@@ -17,13 +18,13 @@ export async function GET(request: NextRequest) {
     const validation = validateMovieSearch(query, page)
     if (!validation.valid) {
       return NextResponse.json(
-        createErrorResponse(400, "VALIDATION_ERROR", validation.error!, requestId),
+        createErrorResponse(400, "VALIDATION_ERROR", validation.error || "Invalid search parameters", requestId),
         { status: 400 }
       )
     }
 
     const movies = await searchMovies(validation.data!.query, validation.data!.page, language, originalLanguage)
-    return NextResponse.json({ success: true, data: movies }, { status: 200 })
+    return NextResponse.json({ success: true, data: movies, requestId }, { status: 200 })
   } catch (error) {
     logError(error, {
       endpoint: "/api/movies/search",

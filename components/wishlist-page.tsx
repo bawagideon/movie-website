@@ -8,9 +8,10 @@ import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { wishlistService, type WishlistItem } from "@/lib/wishlist"
 import { getImageUrl } from "@/lib/tmdb"
+import type { AuthUser } from "@/lib/types"
 
 interface WishlistPageProps {
-  user: any
+  user: AuthUser | null
 }
 
 export default function WishlistPage({ user }: WishlistPageProps) {

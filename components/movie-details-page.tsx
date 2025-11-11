@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { WishlistButton } from "@/components/wishlist-button"
+import { MovieDetailsSkeleton } from "@/components/loading-skeletons"
 import {
   getImageUrl,
   type MovieDetails,
@@ -33,6 +34,7 @@ import {
   type MovieCollection,
 } from "@/lib/tmdb"
 import { useRouter } from "next/navigation"
+import type { AuthUser } from "@/lib/types"
 
 interface MovieDetailsPageProps {
   movie: MovieDetails
@@ -47,7 +49,7 @@ interface MovieDetailsPageProps {
   externalIds: ExternalIds
   recommendations: Movie[]
   collection: MovieCollection | null
-  user: any // Assuming user type is any for simplicity
+  user: AuthUser | null
 }
 
 export default function MovieDetailsPage({

@@ -2,6 +2,9 @@ import { type NextRequest, NextResponse } from "next/server"
 import { generateText } from "ai"
 import { groq } from "@ai-sdk/groq"
 import { discoverMovies, searchMovies, getPopularMovies, getTopRatedMovies } from "@/lib/tmdb-server"
+import { validateAISearch } from "@/lib/validation"
+import { createErrorResponse, logError } from "@/lib/errors"
+import { generateRequestId } from "@/lib/utils"
 
 function getLanguageContext(language: string): string {
   const contexts: Record<string, string> = {
@@ -94,11 +97,18 @@ function prioritizeByLanguage(movies: any[], language: string): any[] {
 }
 
 export async function POST(request: NextRequest) {
+  const requestId = generateRequestId()
+  
   try {
     const { mood, description, language = "en-US" } = await request.json()
 
-    if (!mood && !description) {
-      return NextResponse.json({ error: "Please provide mood or description" }, { status: 400 })
+    // Validate input
+    const validation = validateAISearch(mood, description)
+    if (!validation.valid) {
+      return NextResponse.json(
+        createErrorResponse(400, "VALIDATION_ERROR", validation.error || "Invalid AI search parameters", requestId),
+        { status: 400 }
+      )
     }
 
     const languageContext = getLanguageContext(language)
@@ -282,6 +292,7 @@ RESPOND WITH ONLY THE JSON OBJECT - NO OTHER TEXT OR EXPLANATIONS.`,
       .slice(0, 20)
 
     return NextResponse.json({
+      success: true,
       suggestions: sortedMovies,
       explanation: aiResponse.explanation || "Here are some movies that match your mood and preferences.",
       searchParams: {
@@ -291,9 +302,22 @@ RESPOND WITH ONLY THE JSON OBJECT - NO OTHER TEXT OR EXPLANATIONS.`,
         minRating: aiResponse.minRating,
         thematicSearch: aiResponse.thematicSearch,
       },
+      requestId,
     })
   } catch (error) {
-    console.error("AI search error:", error)
-    return NextResponse.json({ error: "Failed to process AI search" }, { status: 500 })
+    logError(error, {
+      requestId,
+      endpoint: "/api/ai-search",
+      method: "POST",
+    })
+
+    const response = createErrorResponse(
+      500,
+      "AI_SEARCH_FAILED",
+      "Failed to process AI search request",
+      requestId
+    )
+
+    return NextResponse.json(response, { status: 500 })
   }
 }

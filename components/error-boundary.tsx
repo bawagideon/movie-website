@@ -48,10 +48,15 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-background flex items-center justify-center px-4 py-12">
+        <div 
+          className="min-h-screen bg-background flex items-center justify-center px-4 py-12"
+          role="alert"
+          aria-live="assertive"
+          aria-atomic="true"
+        >
           <div className="max-w-md w-full text-center">
             {/* Error Icon */}
-            <div className="flex justify-center mb-6">
+            <div className="flex justify-center mb-6" aria-hidden="true">
               <div className="bg-red-500/10 p-4 rounded-full">
                 <AlertCircle className="h-12 w-12 text-red-500" />
               </div>
@@ -71,7 +76,13 @@ export class ErrorBoundary extends Component<Props, State> {
                 </p>
                 {this.state.errorInfo && (
                   <details className="text-xs">
-                    <summary className="cursor-pointer text-destructive/70">Stack trace</summary>
+                    <summary 
+                      className="cursor-pointer text-destructive/70 focus:outline-none focus-visible:outline-2 focus-visible:outline-destructive rounded px-1"
+                      role="button"
+                      tabIndex={0}
+                    >
+                      Stack trace
+                    </summary>
                     <pre className="mt-2 whitespace-pre-wrap break-words text-destructive/60">
                       {this.state.errorInfo.componentStack}
                     </pre>
@@ -85,16 +96,18 @@ export class ErrorBoundary extends Component<Props, State> {
               <Button
                 onClick={this.handleReset}
                 className="flex-1 flex items-center justify-center gap-2"
+                aria-label="Try to recover from the error and reload the page"
               >
-                <RefreshCw className="h-4 w-4" />
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
                 Try Again
               </Button>
               <Button
                 variant="outline"
                 onClick={() => (window.location.href = "/")}
                 className="flex-1 flex items-center justify-center gap-2"
+                aria-label="Return to the home page"
               >
-                <Home className="h-4 w-4" />
+                <Home className="h-4 w-4" aria-hidden="true" />
                 Go Home
               </Button>
             </div>

@@ -9,10 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Sparkles, Loader2 } from "lucide-react"
 import { MovieGrid } from "@/components/movie-grid"
+import { MovieGridSkeleton } from "@/components/loading-skeletons"
 import type { Movie, Language } from "@/lib/tmdb"
+import type { AuthUser } from "@/lib/types"
 
 interface AISearchProps {
-  user: any
+  user: AuthUser | null
   languages: Language[]
 }
 
@@ -224,7 +226,7 @@ export default function AISearch({ user, languages }: AISearchProps) {
       </Card>
 
       {/* Results */}
-      {results && (
+      {results ? (
         <div className="space-y-6">
           <Card className="border-gray-700/50 bg-black/40 backdrop-blur-sm">
             <CardHeader>
@@ -252,7 +254,22 @@ export default function AISearch({ user, languages }: AISearchProps) {
             <MovieGrid movies={results.suggestions} loading={false} user={user} />
           </div>
         </div>
-      )}
+      ) : loading ? (
+        <div className="space-y-6">
+          <Card className="border-gray-700/50 bg-black/40 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-xl font-bold text-white">Finding Perfect Movies...</CardTitle>
+              <CardDescription className="text-gray-300 font-medium">
+                Our AI is analyzing your preferences
+              </CardDescription>
+            </CardHeader>
+          </Card>
+          <div>
+            <h3 className="text-xl font-bold text-white mb-4">Loading recommendations...</h3>
+            <MovieGridSkeleton count={12} />
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -132,6 +132,45 @@
     min-width: 44px;
     font-size: clamp(1rem, 2.5vw, 1.1rem);
   }
+
+  /* Keyboard Focus Indicator Styles */
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
+    @apply outline-none;
+    outline: 3px solid currentColor;
+    outline-offset: 2px;
+  }
+
+  /* High Contrast Focus Indicators */
+  @media (prefers-contrast: more) {
+    button:focus-visible,
+    [role="button"]:focus-visible,
+    a:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 4px solid currentColor;
+      outline-offset: 3px;
+    }
+  }
+
+  /* Reduce motion - Disable animations for users with motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 /* Added fade-in animation for movie poster background grid */

@@ -12,12 +12,14 @@ import { MovieHero } from "@/components/movie-hero"
 import { GenreFilter } from "@/components/genre-filter"
 import AuthButton from "@/components/auth-button"
 import AISearch from "@/components/ai-search"
+import { MovieGridSkeleton } from "@/components/loading-skeletons"
 import type { Movie, Genre, Language } from "@/lib/tmdb"
+import type { AuthUser } from "@/lib/types"
 
 type MovieCategory = "popular" | "top_rated" | "now_playing" | "upcoming"
 
 interface HomePageProps {
-  user: any
+  user: AuthUser | null
 }
 
 export default function HomePage({ user }: HomePageProps) {
@@ -387,7 +389,7 @@ export default function HomePage({ user }: HomePageProps) {
                 </p>
               </div>
 
-              <MovieGrid movies={movies} loading={loading} user={user} />
+              {loading ? <MovieGridSkeleton /> : <MovieGrid movies={movies} loading={loading} user={user} />}
 
               {movies.length > 0 && !loading && (
                 <div className="flex justify-center mt-8">
@@ -424,7 +426,7 @@ export default function HomePage({ user }: HomePageProps) {
               </div>
             </div>
 
-            <MovieGrid movies={movies} loading={loading} user={user} />
+            {loading ? <MovieGridSkeleton /> : <MovieGrid movies={movies} loading={loading} user={user} />}
           </div>
         )}
       </main>
