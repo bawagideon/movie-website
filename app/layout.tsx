@@ -22,7 +22,7 @@ export default function RootLayout({
   // and will only warn in development.
   initializeEnvironment()
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <style>{`
           html {
