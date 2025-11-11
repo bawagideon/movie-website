@@ -1,4 +1,4 @@
-import { createBrowserClient } from "@supabase/ssr"
+import { createPagesBrowserClient } from "@supabase/auth-helpers-nextjs"
 
 // Check if Supabase environment variables are available
 export const isSupabaseConfigured =
@@ -9,5 +9,7 @@ export const isSupabaseConfigured =
 
 // Create a singleton instance of the Supabase client for Client Components
 export function createClient() {
-  return createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  // createPagesBrowserClient is the recommended helper for Next.js pages/app
+  // client components. It will pick up auth state from cookies/storage.
+  return createPagesBrowserClient()
 }

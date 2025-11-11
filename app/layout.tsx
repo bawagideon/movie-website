@@ -3,6 +3,7 @@ import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import "./globals.css"
 import ClientLayout from "./ClientLayout"
+import { initializeEnvironment } from "@/lib/config/validate-env"
 import { ErrorBoundary } from "@/components/error-boundary"
 
 export const metadata: Metadata = {
@@ -16,6 +17,10 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // Validate environment on the server-side during layout render.
+  // This will throw/exit in production if required variables are missing,
+  // and will only warn in development.
+  initializeEnvironment()
   return (
     <html lang="en" className="dark">
       <head>

@@ -11,13 +11,8 @@ export default function ClientLayout({
   const [menuOpen, setMenuOpen] = React.useState(false);
 
   // Initialize environment validation on mount
-  React.useEffect(() => {
-    try {
-      initializeEnvironment()
-    } catch (error) {
-      console.error("Environment initialization failed:", error)
-    }
-  }, [])
+  // Environment is validated on the server RootLayout; don't run it here to avoid
+  // client-side console noise and potential runtime differences.
 
   return (
     <>

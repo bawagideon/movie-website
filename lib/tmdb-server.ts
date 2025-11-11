@@ -38,7 +38,37 @@ export type {
   Language,
 } from "./tmdb"
 
-async function fetchFromTMDB<T>(endpoint: string): Promise<T> {
+import type {
+  Movie,
+  MovieDetails,
+  Credits,
+  VideosResponse,
+  TMDBResponse,
+  Language,
+  MovieReview,
+  MovieKeyword,
+  MovieImages,
+  MovieWatchProviders,
+  MovieReleaseDates,
+  ExternalIds,
+  MovieCollection,
+  Genre,
+} from "./tmdb"
+import {
+  validateMovieDetails,
+  validateCredits,
+  validateVideos,
+  validateMovieList,
+  validateMovieImages,
+  validateMovieKeywords,
+  validateMovieReviews,
+  validateMovieWatchProviders,
+  validateMovieReleaseDates,
+  validateExternalIds,
+  MovieSchema,
+} from "./tmdb-validators"
+
+async function fetchFromTMDB<T>(endpoint: string, validator?: (data: unknown) => any): Promise<T> {
   const url = `${TMDB_BASE_URL}${endpoint}${endpoint.includes("?") ? "&" : "?"}api_key=${TMDB_API_KEY}`
 
   const response = await fetch(url, {
@@ -49,7 +79,13 @@ async function fetchFromTMDB<T>(endpoint: string): Promise<T> {
     throw new Error(`TMDB API error: ${response.statusText}`)
   }
 
-  return response.json()
+  const json = await response.json()
+
+  if (validator) {
+    return validator(json) as T
+  }
+
+  return json as T
 }
 
 export async function getPopularMovies(page = 1, language = "en-US", originalLanguage?: string) {
@@ -58,17 +94,17 @@ export async function getPopularMovies(page = 1, language = "en-US", originalLan
     const langCode = originalLanguage.split("-")[0]
     endpoint += `&with_original_language=${langCode}`
   }
-  return fetchFromTMDB(endpoint)
+  return fetchFromTMDB<TMDBResponse<Movie>>(endpoint, validateMovieList(MovieSchema))
 }
 
 export async function getTrendingMovies(timeWindow: "day" | "week" = "week") {
-  return fetchFromTMDB(`/trending/movie/${timeWindow}`)
+  return fetchFromTMDB<TMDBResponse<Movie>>(`/trending/movie/${timeWindow}`, validateMovieList(MovieSchema))
 }
 
 export async function searchMovies(query: string, page = 1, language = "en-US", originalLanguage?: string) {
   const encodedQuery = encodeURIComponent(query)
   const endpoint = `/search/movie?query=${encodedQuery}&page=${page}&language=${language}`
-  return fetchFromTMDB(endpoint)
+  return fetchFromTMDB<TMDBResponse<Movie>>(endpoint, validateMovieList(MovieSchema))
 }
 
 export async function discoverMovies(
@@ -107,69 +143,69 @@ export async function getTopRatedMovies(page = 1, language = "en-US", originalLa
     const langCode = originalLanguage.split("-")[0]
     endpoint += `&with_original_language=${langCode}`
   }
-  return fetchFromTMDB(endpoint)
+  return fetchFromTMDB<TMDBResponse<Movie>>(endpoint, validateMovieList(MovieSchema))
 }
 
 export async function getLanguages() {
-  return fetchFromTMDB("/configuration/languages")
+  return fetchFromTMDB<Language[]>("/configuration/languages")
 }
 
 export async function getMovieDetails(movieId: number) {
-  return fetchFromTMDB(`/movie/${movieId}`)
+  return fetchFromTMDB<MovieDetails>(`/movie/${movieId}`, validateMovieDetails)
 }
 
 export async function getMovieCredits(movieId: number) {
-  return fetchFromTMDB(`/movie/${movieId}/credits`)
+  return fetchFromTMDB<Credits>(`/movie/${movieId}/credits`, validateCredits)
 }
 
 export async function getMovieVideos(movieId: number) {
-  return fetchFromTMDB(`/movie/${movieId}/videos`)
+  return fetchFromTMDB<VideosResponse>(`/movie/${movieId}/videos`, validateVideos)
 }
 
 export async function getSimilarMovies(movieId: number, page = 1) {
-  return fetchFromTMDB(`/movie/${movieId}/similar?page=${page}`)
+  return fetchFromTMDB<TMDBResponse<Movie>>(`/movie/${movieId}/similar?page=${page}`, validateMovieList(MovieSchema))
 }
 
 export async function getRecommendedMovies(movieId: number, page = 1) {
-  return fetchFromTMDB(`/movie/${movieId}/recommendations?page=${page}`)
+  return fetchFromTMDB<TMDBResponse<Movie>>(`/movie/${movieId}/recommendations?page=${page}`, validateMovieList(MovieSchema))
 }
 
 export async function getNowPlayingMovies(page = 1) {
-  return fetchFromTMDB(`/movie/now_playing?page=${page}`)
+  return fetchFromTMDB<TMDBResponse<Movie>>(`/movie/now_playing?page=${page}`, validateMovieList(MovieSchema))
 }
 
 export async function getUpcomingMovies(page = 1) {
-  return fetchFromTMDB(`/movie/upcoming?page=${page}`)
+  return fetchFromTMDB<TMDBResponse<Movie>>(`/movie/upcoming?page=${page}`, validateMovieList(MovieSchema))
 }
 
 export async function getGenres() {
-  return fetchFromTMDB("/genre/movie/list")
+  return fetchFromTMDB<{ genres: Genre[] }>("/genre/movie/list")
 }
 
 export async function getMovieReviews(movieId: number, page = 1) {
-  return fetchFromTMDB(`/movie/${movieId}/reviews?page=${page}`)
+  return fetchFromTMDB<{ results: MovieReview[] }>(`/movie/${movieId}/reviews?page=${page}`, validateMovieReviews)
 }
 
 export async function getMovieKeywords(movieId: number) {
-  return fetchFromTMDB(`/movie/${movieId}/keywords`)
+  return fetchFromTMDB<{ keywords: MovieKeyword[] }>(`/movie/${movieId}/keywords`, validateMovieKeywords)
 }
 
 export async function getMovieImages(movieId: number) {
-  return fetchFromTMDB(`/movie/${movieId}/images`)
+  return fetchFromTMDB<MovieImages>(`/movie/${movieId}/images`, validateMovieImages)
 }
 
 export async function getMovieWatchProviders(movieId: number) {
-  return fetchFromTMDB(`/movie/${movieId}/watch/providers`)
+  return fetchFromTMDB<MovieWatchProviders>(`/movie/${movieId}/watch/providers`, validateMovieWatchProviders)
 }
 
 export async function getMovieReleaseDates(movieId: number) {
-  return fetchFromTMDB(`/movie/${movieId}/release_dates`)
+  return fetchFromTMDB<MovieReleaseDates>(`/movie/${movieId}/release_dates`, validateMovieReleaseDates)
 }
 
 export async function getMovieExternalIds(movieId: number) {
-  return fetchFromTMDB(`/movie/${movieId}/external_ids`)
+  return fetchFromTMDB<ExternalIds>(`/movie/${movieId}/external_ids`, validateExternalIds)
 }
 
 export async function getCollection(collectionId: number) {
-  return fetchFromTMDB(`/collection/${collectionId}`)
+  return fetchFromTMDB<MovieCollection>(`/collection/${collectionId}`)
 }

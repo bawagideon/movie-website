@@ -30,7 +30,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
   }
 
   try {
-    const supabase = createClient()
+  const supabase = await createClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()

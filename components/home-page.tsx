@@ -58,16 +58,23 @@ export default function HomePage({ user }: HomePageProps) {
           fetch("/api/movies/now-playing").then((res) => res.json()),
         ])
 
-      setMovies(popularMovies.results)
-      setFeaturedMovie(trendingMovies.results[0])
-      setGenres(genresData.genres)
-      setLanguages(languagesData.languages)
+      const popular = (popularMovies && popularMovies.results) || []
+      const trending = (trendingMovies && trendingMovies.results) || []
+      const topRated = (topRatedMovies && topRatedMovies.results) || []
+      const nowPlaying = (nowPlayingMovies && nowPlayingMovies.results) || []
+      const genresList = (genresData && genresData.genres) || []
+      const languagesList = (languagesData && languagesData.languages) || []
+
+      setMovies(popular)
+      if (trending.length > 0) setFeaturedMovie(trending[0])
+      setGenres(genresList)
+      setLanguages(languagesList)
 
       const allBackgroundMovies = [
-        ...popularMovies.results.slice(0, 30),
-        ...topRatedMovies.results.slice(0, 30),
-        ...nowPlayingMovies.results.slice(0, 30),
-        ...trendingMovies.results.slice(0, 6),
+        ...popular.slice(0, 30),
+        ...topRated.slice(0, 30),
+        ...nowPlaying.slice(0, 30),
+        ...trending.slice(0, 6),
       ]
       setBackgroundMovies(allBackgroundMovies)
     } catch (error) {
@@ -96,15 +103,17 @@ export default function HomePage({ user }: HomePageProps) {
           break
       }
 
-      let filteredMovies = response.results
+      const movieList = (response && response.results) || []
+
+      let filteredMovies = movieList
 
       if (selectedGenre) {
-        filteredMovies = filteredMovies.filter((movie: Movie) => movie.genre_ids.includes(selectedGenre))
+        filteredMovies = filteredMovies.filter((movie: Movie) => (movie.genre_ids || []).includes(selectedGenre))
       }
 
       filteredMovies = sortMovies(filteredMovies, sortBy)
 
-      setMovies(page === 1 ? filteredMovies : [...movies, ...filteredMovies])
+      setMovies(page === 1 ? filteredMovies : [...(movies || []), ...filteredMovies])
     } catch (error) {
       console.error("Failed to load movies:", error)
     } finally {
