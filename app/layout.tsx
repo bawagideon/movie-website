@@ -1,15 +1,30 @@
 import type { Metadata } from "next"
-import { GeistSans } from "geist/font/sans"
-import { GeistMono } from "geist/font/mono"
+import { Bebas_Neue, Inter } from "next/font/google"
 import "./globals.css"
 import ClientLayout from "./ClientLayout"
 import { initializeEnvironment } from "@/lib/config/validate-env"
 import { ErrorBoundary } from "@/components/error-boundary"
 
+const bebas = Bebas_Neue({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-bebas",
+})
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+})
+
 export const metadata: Metadata = {
-  title: "MovieVault - Your Movie Wishlist",
-  description: "Discover, explore, and save your favorite movies with MOVIEVAULT's AI-powered app.",
+  title: "Cinema80 - Retro Movie Discovery",
+  description: "Discover, explore, and save your favorite movies with Cinema80's AI-powered retro experience.",
   generator: "v0.dev",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
+  },
 }
 
 export default function RootLayout({
@@ -22,20 +37,11 @@ export default function RootLayout({
   // and will only warn in development.
   initializeEnvironment()
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" className={`dark ${bebas.variable} ${inter.variable}`} suppressHydrationWarning>
       <head>
-        <style>{`
-          html {
-            font-family: ${GeistSans.style.fontFamily};
-            --font-sans: ${GeistSans.variable};
-            --font-mono: ${GeistMono.variable};
-            font-size: clamp(15px, 4vw, 18px);
-            scroll-behavior: smooth;
-          }
-        `}</style>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=yes" />
       </head>
-      <body className="touch-manipulation antialiased min-h-screen bg-background text-foreground">
+      <body className="touch-manipulation antialiased min-h-screen bg-background text-foreground font-sans">
         <ErrorBoundary>
           <ClientLayout>{children}</ClientLayout>
         </ErrorBoundary>

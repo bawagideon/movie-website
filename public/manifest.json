@@ -1,13 +1,16 @@
 {
-  "name": "MovieVault - Movie Wishlist App",
-  "short_name": "MovieVault",
+  "name": "Cinema80 - Retro Movie Discovery",
+  "short_name": "Cinema80",
   "description": "Discover and save your favorite movies with AI-powered recommendations",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#dc2626",
   "scope": "/",
-  "categories": ["entertainment", "lifestyle"],
+  "categories": [
+    "entertainment",
+    "lifestyle"
+  ],
   "screenshots": [
     {
       "src": "/screenshots/mobile.png",

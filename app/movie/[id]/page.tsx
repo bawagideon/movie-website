@@ -3,14 +3,10 @@ import {
   getMovieDetails,
   getMovieCredits,
   getMovieVideos,
-  getSimilarMovies,
-  getMovieReviews,
-  getMovieKeywords,
   getMovieImages,
   getMovieWatchProviders,
   getMovieReleaseDates,
   getMovieExternalIds,
-  getRecommendedMovies,
   getCollection,
 } from "@/lib/tmdb-server"
 import { notFound } from "next/navigation"
@@ -30,7 +26,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
   }
 
   try {
-  const supabase = await createClient()
+    const supabase = await createClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -39,50 +35,36 @@ export default async function MoviePage({ params }: MoviePageProps) {
       movieDetails,
       credits,
       videos,
-      similarMovies,
-      reviews,
-      keywords,
       images,
       watchProviders,
       releaseDates,
       externalIds,
-      recommendations,
     ] = await Promise.all([
       getMovieDetails(movieId),
       getMovieCredits(movieId),
       getMovieVideos(movieId),
-      getSimilarMovies(movieId),
-      getMovieReviews(movieId),
-      getMovieKeywords(movieId),
       getMovieImages(movieId),
       getMovieWatchProviders(movieId),
       getMovieReleaseDates(movieId),
       getMovieExternalIds(movieId),
-      getRecommendedMovies(movieId),
     ])
 
-    let collection = null
-    if (movieDetails.belongs_to_collection) {
-      try {
-        collection = await getCollection(movieDetails.belongs_to_collection.id)
-      } catch (error) {
-        console.error("Failed to load collection:", error)
-      }
-    }
+    // Collection is now lazy loaded in the client component
+    const collection = null
 
     return (
       <MovieDetailsPage
         movie={movieDetails}
         credits={credits}
         videos={videos.results}
-        similarMovies={similarMovies.results}
-        reviews={reviews.results}
-        keywords={keywords.keywords}
+        similarMovies={[]}
+        reviews={[]}
+        keywords={[]}
         images={images}
         watchProviders={watchProviders}
         releaseDates={releaseDates}
         externalIds={externalIds}
-        recommendations={recommendations.results}
+        recommendations={[]}
         collection={collection}
         user={user}
       />

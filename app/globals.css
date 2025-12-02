@@ -75,6 +75,8 @@
 }
 
 @theme inline {
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-bebas);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -118,6 +120,7 @@
     @apply border-border outline-ring/50 touch-manipulation;
     -webkit-tap-highlight-color: transparent;
   }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-size: clamp(15px, 4vw, 18px);
@@ -126,7 +129,14 @@
     -webkit-font-smoothing: antialiased;
     -webkit-touch-callout: none;
   }
-  button, [role="button"], .button, .btn, input, select, textarea {
+
+  button,
+  [role="button"],
+  .button,
+  .btn,
+  input,
+  select,
+  textarea {
     @apply touch-manipulation;
     min-height: 44px;
     min-width: 44px;
@@ -148,6 +158,7 @@
 
   /* High Contrast Focus Indicators */
   @media (prefers-contrast: more) {
+
     button:focus-visible,
     [role="button"]:focus-visible,
     a:focus-visible,
@@ -162,6 +173,7 @@
 
   /* Reduce motion - Disable animations for users with motion preferences */
   @media (prefers-reduced-motion: reduce) {
+
     *,
     *::before,
     *::after {
@@ -179,6 +191,7 @@
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -186,7 +199,7 @@
 }
 
 .animate-fade-in {
-  animation: fade-in 0.8s cubic-bezier(0.4,0,0.2,1) forwards;
+  animation: fade-in 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   opacity: 0;
 }
 
@@ -195,13 +208,15 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
+
 .animate-fade-up {
-  animation: fade-up 0.7s cubic-bezier(0.4,0,0.2,1) forwards;
+  animation: fade-up 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   opacity: 0;
 }
 
@@ -233,4 +248,20 @@
   .backdrop-gradient {
     background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.8) 100%);
   }
+
+  .font-display {
+    font-family: var(--font-display);
+  }
+}
+
+.cinema-mode::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: black;
+  z-index: 40;
+  opacity: 0.9;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+  animation: fade-in 0.5s ease forwards;
 }

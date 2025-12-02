@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { generateText } from "ai"
-import { groq } from "@ai-sdk/groq"
+import { google } from "@ai-sdk/google"
 import { discoverMovies, searchMovies, getPopularMovies, getTopRatedMovies } from "@/lib/tmdb-server"
 import { validateAISearch } from "@/lib/validation"
 import { createErrorResponse, logError } from "@/lib/errors"
@@ -81,41 +81,38 @@ function getFallbackSuggestions(mood: string, description: string, language: str
   }
 }
 
-function prioritizeByLanguage(movies: any[], language: string): any[] {
-  return movies.sort((a, b) => {
-    // Prioritize movies in the selected language
-    const aLangMatch = a.original_language === language.split("-")[0] ? 1 : 0
-    const bLangMatch = b.original_language === language.split("-")[0] ? 1 : 0
-
-    if (aLangMatch !== bLangMatch) {
-      return bLangMatch - aLangMatch
-    }
-
-    // Then sort by popularity
-    return b.popularity - a.popularity
-  })
-}
-
 export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
-  
+
   try {
-    const { mood, description, language = "en-US" } = await request.json()
+    console.log(`[AI Search] Request ID: ${requestId} - Starting processing`)
+    const body = await request.json()
+    const { mood, description, language = "en-US" } = body
 
     // Validate input
-    const validation = validateAISearch(mood, description)
+    const validation = validateAISearch(body)
     if (!validation.valid) {
+      console.error(`[AI Search] Validation failed: ${validation.error}`)
       return NextResponse.json(
         createErrorResponse(400, "VALIDATION_ERROR", validation.error || "Invalid AI search parameters", requestId),
         { status: 400 }
       )
     }
 
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+      console.error("Missing GOOGLE_GENERATIVE_AI_API_KEY environment variable")
+      return NextResponse.json(
+        createErrorResponse(500, "CONFIG_ERROR", "Server configuration error: Missing AI API key", requestId),
+        { status: 500 }
+      )
+    }
+
     const languageContext = getLanguageContext(language)
     const culturalContext = getCulturalContext(mood, description, language)
 
+    console.log(`[AI Search] Calling Gemini API...`)
     const { text } = await generateText({
-      model: groq("llama-3.1-8b-instant"),
+      model: google("gemini-2.5-flash"),
       prompt: `You are a movie recommendation expert with deep knowledge of international cinema and cultural contexts.
 
 User's mood: ${mood || "Not specified"}
@@ -158,6 +155,8 @@ Rules:
 RESPOND WITH ONLY THE JSON OBJECT - NO OTHER TEXT OR EXPLANATIONS.`,
     })
 
+    console.log(`[AI Search] Gemini response received. Length: ${text.length}`)
+
     let aiResponse
     try {
       let cleanedText = text.trim()
@@ -196,11 +195,13 @@ RESPOND WITH ONLY THE JSON OBJECT - NO OTHER TEXT OR EXPLANATIONS.`,
       if (!aiResponse.genres || !Array.isArray(aiResponse.genres)) {
         throw new Error("Invalid AI response structure")
       }
+      console.log(`[AI Search] Parsed AI response successfully`)
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError)
       console.error("Raw AI response:", text)
 
       aiResponse = getFallbackSuggestions(mood, description, language)
+      console.log(`[AI Search] Using fallback suggestions`)
     }
 
     const moviePromises = []
@@ -252,7 +253,9 @@ RESPOND WITH ONLY THE JSON OBJECT - NO OTHER TEXT OR EXPLANATIONS.`,
       moviePromises.push(getPopularMovies(1, "en-US", language))
     }
 
+    console.log(`[AI Search] Fetching ${moviePromises.length} movie sources from TMDB...`)
     const results = await Promise.all(moviePromises)
+    console.log(`[AI Search] TMDB fetch complete`)
 
     const allMovies = results.flatMap((result) => result.results || [])
     const uniqueMovies = allMovies.filter((movie, index, self) => index === self.findIndex((m) => m.id === movie.id))
@@ -265,6 +268,7 @@ RESPOND WITH ONLY THE JSON OBJECT - NO OTHER TEXT OR EXPLANATIONS.`,
 
       // If no movies found in selected language, show a message
       if (filteredMovies.length === 0) {
+        console.log(`[AI Search] No movies found in language ${langCode}`)
         return NextResponse.json({
           suggestions: [],
           explanation: `No movies found in ${language.split("-")[0].toUpperCase()} language for your search. Try a different mood or description.`,
@@ -291,6 +295,8 @@ RESPOND WITH ONLY THE JSON OBJECT - NO OTHER TEXT OR EXPLANATIONS.`,
       })
       .slice(0, 20)
 
+    console.log(`[AI Search] Returning ${sortedMovies.length} movies`)
+
     return NextResponse.json({
       success: true,
       suggestions: sortedMovies,
@@ -305,6 +311,7 @@ RESPOND WITH ONLY THE JSON OBJECT - NO OTHER TEXT OR EXPLANATIONS.`,
       requestId,
     })
   } catch (error) {
+    console.error(`[AI Search] Critical error:`, error)
     logError(error, {
       requestId,
       endpoint: "/api/ai-search",

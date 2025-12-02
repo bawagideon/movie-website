@@ -1,22 +1,3 @@
-/**
- * Service Worker for MovieVault
- * Enables offline support, caching, and background sync
- * Add to public/sw.js and register from layout.tsx
- */
-
-const CACHE_NAME = 'movievault-v1'
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json'
-]
-
-const API_CACHE = 'movievault-api-v1'
-const API_ENDPOINTS = [
-  '/api/genres',
-  '/api/languages'
-]
-
 // Install event - cache static assets
 self.addEventListener('install', event => {
   event.waitUntil(
@@ -149,7 +130,7 @@ async function syncWishlist() {
  */
 function openDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('MovieVault', 1)
+    const request = indexedDB.open('Cinema80', 1)
 
     request.onerror = () => reject(request.error)
     request.onsuccess = () => resolve(request.result)
@@ -175,7 +156,7 @@ self.addEventListener('push', event => {
     body: data.body,
     icon: '/icon-192.png',
     badge: '/icon-192.png',
-    tag: 'movievault',
+    tag: 'cinema80',
     requireInteraction: false,
     actions: [
       {
@@ -190,7 +171,7 @@ self.addEventListener('push', event => {
   }
 
   event.waitUntil(
-    self.registration.showNotification(data.title || 'MovieVault', options)
+    self.registration.showNotification(data.title || 'Cinema80', options)
   )
 })
 

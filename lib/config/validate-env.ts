@@ -7,15 +7,13 @@ export interface ValidatedEnv {
   supabaseUrl: string
   supabaseAnonKey: string
   tmdbApiKey: string
-  groqApiKey: string
+  googleApiKey: string
   nodeEnv: 'development' | 'production' | 'test'
 }
 
 const requiredVars = {
-  NEXT_PUBLIC_SUPABASE_URL: 'Supabase project URL',
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: 'Supabase anonymous key',
   NEXT_PUBLIC_TMDB_API_KEY: 'TMDB API key',
-  GROQ_API_KEY: 'Groq API key for AI search',
+  GOOGLE_GENERATIVE_AI_API_KEY: 'Google Gemini API key',
 }
 
 /**
@@ -57,7 +55,7 @@ export function validateEnvironment(): ValidatedEnv {
     supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
     supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
     tmdbApiKey: process.env.NEXT_PUBLIC_TMDB_API_KEY ?? '',
-    groqApiKey: process.env.GROQ_API_KEY ?? '',
+    googleApiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? '',
     nodeEnv: (process.env.NODE_ENV as 'development' | 'production' | 'test') || 'development',
   }
 }

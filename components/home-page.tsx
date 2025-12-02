@@ -2,19 +2,27 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { Search, Play, Sparkles, Film, Star, TrendingUp } from "lucide-react"
+import { useSearchParams } from "next/navigation"
+import { Play, Film, Star, TrendingUp, Zap, Calendar, Heart, Sparkles } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MovieGrid } from "@/components/movie-grid"
 import { MovieHero } from "@/components/movie-hero"
 import { GenreFilter } from "@/components/genre-filter"
-import AuthButton from "@/components/auth-button"
 import AISearch from "@/components/ai-search"
 import { MovieGridSkeleton } from "@/components/loading-skeletons"
 import type { Movie, Genre, Language } from "@/lib/tmdb"
 import type { AuthUser } from "@/lib/types"
+import Link from "next/link"
+
+// Dashboard Components
+import { DashboardHero } from "@/components/dashboard/hero"
+import { MoodDeck } from "@/components/dashboard/mood-deck"
+import { PersonalizedFeed } from "@/components/dashboard/personalized-feed"
 
 type MovieCategory = "popular" | "top_rated" | "now_playing" | "upcoming"
 
@@ -29,62 +37,85 @@ export default function HomePage({ user }: HomePageProps) {
   const [loading, setLoading] = useState(true)
   const [activeCategory, setActiveCategory] = useState<MovieCategory>("popular")
   const [selectedGenre, setSelectedGenre] = useState<number | null>(null)
+  const [categoryCache, setCategoryCache] = useState<Record<string, Movie[]>>({})
   const [genres, setGenres] = useState<Genre[]>([])
+  const [languages, setLanguages] = useState<Language[]>([])
   const [sortBy, setSortBy] = useState<"popularity" | "rating" | "release_date">("popularity")
   const [currentPage, setCurrentPage] = useState(1)
-  const [languages, setLanguages] = useState<Language[]>([])
   const [showAISearch, setShowAISearch] = useState(false)
   const [backgroundMovies, setBackgroundMovies] = useState<Movie[]>([])
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // Dashboard State
+  const [dashboardMovies, setDashboardMovies] = useState<Movie[]>([])
+  const [dashboardExplanation, setDashboardExplanation] = useState("")
+  const [isDashboardSearching, setIsDashboardSearching] = useState(false)
 
   useEffect(() => {
-    loadInitialData()
+    loadCriticalData()
+    loadSecondaryData()
   }, [])
 
   useEffect(() => {
-    if (!searchQuery) {
-      loadMoviesByCategory(activeCategory, currentPage)
+    if (!searchQuery && !user) {
+      if (categoryCache[activeCategory] && currentPage === 1 && !selectedGenre && sortBy === "popularity") {
+        setMovies(categoryCache[activeCategory])
+      } else {
+        loadMoviesByCategory(activeCategory, currentPage)
+      }
+    } else if (user && dashboardMovies.length === 0) {
+      loadMoviesByCategory("popular", 1).then(() => {
+        setDashboardMovies(movies)
+      })
     }
-  }, [activeCategory, selectedGenre, sortBy, currentPage])
+  }, [activeCategory, selectedGenre, sortBy, currentPage, user])
 
-  const loadInitialData = async () => {
+  const loadCriticalData = async () => {
     try {
-      const [popularMovies, trendingMovies, genresData, languagesData, topRatedMovies, nowPlayingMovies] =
-        await Promise.all([
-          fetch("/api/movies/popular").then((res) => res.json()),
-          fetch("/api/movies/trending").then((res) => res.json()),
-          fetch("/api/genres").then((res) => res.json()),
-          fetch("/api/languages").then((res) => res.json()),
-          fetch("/api/movies/top-rated").then((res) => res.json()),
-          fetch("/api/movies/now-playing").then((res) => res.json()),
-        ])
+      const [popularMovies, trendingMovies] = await Promise.all([
+        fetch("/api/movies/popular").then((res) => res.json()),
+        fetch("/api/movies/trending").then((res) => res.json()),
+      ])
 
-      const popular = (popularMovies && popularMovies.results) || []
-      const trending = (trendingMovies && trendingMovies.results) || []
-      const topRated = (topRatedMovies && topRatedMovies.results) || []
-      const nowPlaying = (nowPlayingMovies && nowPlayingMovies.results) || []
-      const genresList = (genresData && genresData.genres) || []
-      const languagesList = (languagesData && languagesData.languages) || []
+      const popular = popularMovies?.data?.results || []
+      const trending = trendingMovies?.data?.results || []
 
       setMovies(popular)
-      if (trending.length > 0) setFeaturedMovie(trending[0])
-      setGenres(genresList)
-      setLanguages(languagesList)
+      setCategoryCache(prev => ({ ...prev, popular }))
 
-      const allBackgroundMovies = [
-        ...popular.slice(0, 30),
-        ...topRated.slice(0, 30),
-        ...nowPlaying.slice(0, 30),
-        ...trending.slice(0, 6),
-      ]
+      if (user) setDashboardMovies(popular)
+      if (trending.length > 0) setFeaturedMovie(trending[0])
+
+      const allBackgroundMovies = [...popular.slice(0, 30), ...trending.slice(0, 6)]
       setBackgroundMovies(allBackgroundMovies)
     } catch (error) {
-      console.error("Failed to load movies:", error)
+      console.error("Failed to load critical data:", error)
     } finally {
       setLoading(false)
     }
   }
 
+  const loadSecondaryData = async () => {
+    try {
+      const [genresData, languagesData] = await Promise.all([
+        fetch("/api/genres").then((res) => res.json()),
+        fetch("/api/languages").then((res) => res.json()),
+      ])
+
+      setGenres(genresData?.genres || [])
+      setLanguages(languagesData?.languages || [])
+    } catch (error) {
+      console.error("Failed to load secondary data:", error)
+    }
+  }
+
   const loadMoviesByCategory = async (category: MovieCategory, page = 1) => {
+    // If we have it in cache and we are on page 1 with no filters, use cache
+    if (page === 1 && !selectedGenre && sortBy === "popularity" && categoryCache[category]) {
+      setMovies(categoryCache[category])
+      return
+    }
+
     setLoading(true)
     try {
       let response
@@ -103,8 +134,7 @@ export default function HomePage({ user }: HomePageProps) {
           break
       }
 
-      const movieList = (response && response.results) || []
-
+      const movieList = response?.data?.results || []
       let filteredMovies = movieList
 
       if (selectedGenre) {
@@ -112,6 +142,10 @@ export default function HomePage({ user }: HomePageProps) {
       }
 
       filteredMovies = sortMovies(filteredMovies, sortBy)
+
+      if (page === 1 && !selectedGenre && sortBy === "popularity") {
+        setCategoryCache(prev => ({ ...prev, [category]: filteredMovies }))
+      }
 
       setMovies(page === 1 ? filteredMovies : [...(movies || []), ...filteredMovies])
     } catch (error) {
@@ -135,28 +169,27 @@ export default function HomePage({ user }: HomePageProps) {
     })
   }
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!searchQuery.trim()) return
+  // handleSearch replaced by performSearch logic
 
-    setLoading(true)
+
+  const handleDashboardSearch = async (query: string) => {
+    setIsDashboardSearching(true)
     try {
-      const results = await fetch(`/api/movies/search?query=${encodeURIComponent(searchQuery)}`).then((res) =>
-        res.json(),
-      )
-      let filteredMovies = results.results
+      const res = await fetch("/api/ai/personalized", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mood: query })
+      })
+      const data = await res.json()
 
-      if (selectedGenre) {
-        filteredMovies = filteredMovies.filter((movie: Movie) => movie.genre_ids.includes(selectedGenre))
+      if (data.movies) {
+        setDashboardMovies(data.movies)
+        setDashboardExplanation(data.explanation)
       }
-
-      filteredMovies = sortMovies(filteredMovies, sortBy)
-      setMovies(filteredMovies)
-      setCurrentPage(1)
     } catch (error) {
-      console.error("Search failed:", error)
+      console.error("Dashboard search failed:", error)
     } finally {
-      setLoading(false)
+      setIsDashboardSearching(false)
     }
   }
 
@@ -193,252 +226,258 @@ export default function HomePage({ user }: HomePageProps) {
     }
   }
 
+  const searchParams = useSearchParams()
+  const queryParam = searchParams.get("q")
+
+  useEffect(() => {
+    if (queryParam) {
+      setSearchQuery(queryParam)
+      performSearch(queryParam)
+    }
+  }, [queryParam])
+
+  // ... (existing useEffects)
+
+  const performSearch = async (query: string) => {
+    if (!query.trim()) return
+
+    setLoading(true)
+    try {
+      const results = await fetch(`/api/movies/search?query=${encodeURIComponent(query)}`).then((res) =>
+        res.json(),
+      )
+      let filteredMovies = results?.data?.results || []
+
+      if (selectedGenre) {
+        filteredMovies = filteredMovies.filter((movie: Movie) => movie.genre_ids.includes(selectedGenre))
+      }
+
+      filteredMovies = sortMovies(filteredMovies, sortBy)
+      setMovies(filteredMovies)
+      setCurrentPage(1)
+    } catch (error) {
+      console.error("Search failed:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault()
+    performSearch(searchQuery)
+  }
+
+  // ... (existing handlers)
+
   return (
-  <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
-      {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center space-x-2">
-              <Play className="h-8 w-8 text-primary" />
-              <h1 className="text-2xl font-bold">MovieVault</h1>
+    <div className="min-h-screen bg-background text-foreground overflow-x-hidden selection:bg-primary/30 font-sans">
+      {/* Header removed - now in SiteHeader */}
+
+
+      <div className="pt-20">
+        {user ? (
+          // LOGGED IN: PERSONALIZED DASHBOARD
+          <main className="min-h-screen bg-background">
+            <DashboardHero onSearch={handleDashboardSearch} isSearching={isDashboardSearching} />
+
+            <div className="container mx-auto px-4 space-y-8 pb-20">
+              <MoodDeck />
+
+              <PersonalizedFeed
+                movies={dashboardMovies}
+                explanation={dashboardExplanation}
+                title={dashboardExplanation ? "Your Personalized Picks" : "Recommended for You"}
+              />
             </div>
-
-            <div className="flex items-center gap-2">
-              <form onSubmit={handleSearch} className="flex items-center space-x-2 max-w-md">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    placeholder="Search movies..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <Button type="submit" size="sm">
-                  Search
-                </Button>
-              </form>
-
-              <Button
-                variant={showAISearch ? "default" : "outline"}
-                size="sm"
-                onClick={() => setShowAISearch(!showAISearch)}
-                className="flex items-center gap-2"
-              >
-                <Sparkles className="h-4 w-4" />
-                AI Search
-              </Button>
-            </div>
-
-            <AuthButton user={user} />
-          </div>
-        </div>
-      </header>
-
-  <section className="relative min-h-screen flex flex-col overflow-hidden max-w-full">
-        <div className="absolute inset-0 z-0">
-          <div className="grid grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-1 h-full opacity-40">
-            {Array.from({ length: 96 }).map((_, i) => {
-              const movie = backgroundMovies[i % backgroundMovies.length]
-              return (
-                <div
-                  key={i}
-                  className="aspect-[2/3] bg-gradient-to-br from-gray-800 via-gray-700 to-gray-900 rounded-sm overflow-hidden transform hover:scale-105 transition-transform duration-500"
-                  style={{
-                    animationDelay: `${i * 0.05}s`,
-                  }}
-                >
-                  {movie?.poster_path ? (
-                    <img
-                      src={`https://image.tmdb.org/t/p/w300${movie.poster_path}`}
-                      alt={movie.title}
-                      className="w-full h-full object-cover animate-fade-in"
-                      style={{
-                        animationDelay: `${i * 0.1}s`,
-                        animationDuration: "0.8s",
-                        animationFillMode: "both",
-                      }}
-                      loading="lazy"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none"
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-gray-800 via-gray-700 to-gray-900 animate-pulse" />
-                  )}
-                </div>
-              )
-            })}
-          </div>
-          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/30" />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-transparent to-black/30" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-        </div>
-
-        {/* AI Discovery Section */}
-        <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-16">
-          <div className="max-w-6xl mx-auto w-full">
-            <div className="text-center space-y-8 mb-12">
-              <div className="space-y-6">
-                <div className="flex items-center justify-center gap-4">
-                  <Sparkles className="h-8 w-8 text-white animate-pulse" />
-                  <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold bg-gradient-to-r from-white via-gray-100 to-gray-200 bg-clip-text text-transparent tracking-tight">
-                    AI Movie Discovery
-                  </h1>
-                  <Film className="h-8 w-8 text-gray-300 animate-pulse" />
-                </div>
-
-                <div className="space-y-4">
-                  <p className="text-xl md:text-2xl lg:text-3xl text-gray-200 font-medium leading-relaxed">
-                    Describe your mood, get perfect movie recommendations
-                  </p>
-                  <p className="text-base md:text-lg text-gray-400 leading-relaxed max-w-4xl mx-auto">
-                    "I want something romantic but not too cheesy" • "A thriller that won't give me nightmares"
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-center gap-8 md:gap-12">
-                <div className="flex items-center gap-3 text-base font-medium text-gray-300">
-                  <Star className="h-5 w-5 text-yellow-400" />
-                  <span>AI-Powered</span>
-                </div>
-                <div className="flex items-center gap-3 text-base font-medium text-gray-300">
-                  <TrendingUp className="h-5 w-5 text-green-400" />
-                  <span>Smart Recommendations</span>
-                </div>
-                <div className="flex items-center gap-3 text-base font-medium text-gray-300">
-                  <Film className="h-5 w-5 text-blue-400" />
-                  <span>Multi-Language</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Integrated AI Search Form */}
-            <div className="max-w-4xl mx-auto">
-              <div className="relative group">
-                {/* Soft glow effect */}
-                <div className="absolute -inset-1 bg-gradient-to-r from-white/10 via-gray-400/20 to-white/10 rounded-3xl blur-xl opacity-30 group-hover:opacity-50 transition-opacity duration-500" />
-
-                {/* Main form container with glass-morphism */}
-                <div className="relative bg-gradient-to-br from-black/30 via-gray-900/40 to-black/20 backdrop-blur-2xl border border-white/10 rounded-3xl p-8 md:p-12 shadow-2xl ring-1 ring-white/5 hover:ring-white/10 transition-all duration-500">
-                  {/* Inner gradient overlay for depth */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/5 to-transparent rounded-3xl pointer-events-none" />
-
-                  {/* Content */}
-                  <div className="relative z-10">
-                    <AISearch user={user} languages={languages} />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="text-center mt-8">
-              <p className="text-sm md:text-base text-gray-400 font-medium leading-relaxed max-w-3xl mx-auto">
-                Try: "Bollywood romance in monsoon" • "Korean thriller with plot twists" • "Feel-good animated movies"
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Seamless transition to featured movie */}
-        {featuredMovie && !searchQuery && !showAISearch && (
-          <div className="relative z-10">
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
-            <div className="relative">
-              <MovieHero movie={featuredMovie} />
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* Main Content */}
-  <main className="container mx-auto px-2 sm:px-4 py-8 max-w-full">
-        {showAISearch ? (
-          <div className="text-center py-8">
-            <p className="text-muted-foreground">
-              Use the AI search above to discover movies based on your mood and preferences.
-            </p>
-          </div>
-        ) : !searchQuery ? (
-          <Tabs value={activeCategory} onValueChange={(value) => handleCategoryChange(value as MovieCategory)}>
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-              <TabsList className="grid w-full lg:w-auto grid-cols-4 lg:grid-cols-4">
-                <TabsTrigger value="popular">Popular</TabsTrigger>
-                <TabsTrigger value="top_rated">Top Rated</TabsTrigger>
-                <TabsTrigger value="now_playing">Now Playing</TabsTrigger>
-                <TabsTrigger value="upcoming">Coming Soon</TabsTrigger>
-              </TabsList>
-
-              <div className="flex items-center gap-4">
-                <GenreFilter genres={genres} selectedGenre={selectedGenre} onGenreChange={handleGenreChange} />
-
-                <Select value={sortBy} onValueChange={(value) => handleSortChange(value as typeof sortBy)}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="popularity">Popularity</SelectItem>
-                    <SelectItem value="rating">Rating</SelectItem>
-                    <SelectItem value="release_date">Release Date</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <TabsContent value={activeCategory} className="mt-0">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold mb-2">{getCategoryTitle(activeCategory)}</h2>
-                <p className="text-muted-foreground">
-                  {selectedGenre
-                    ? `${getCategoryTitle(activeCategory)} in ${genres.find((g) => g.id === selectedGenre)?.name}`
-                    : `Discover the best ${getCategoryTitle(activeCategory).toLowerCase()}`}
-                </p>
-              </div>
-
-              {loading ? <MovieGridSkeleton /> : <MovieGrid movies={movies} loading={loading} user={user} />}
-
-              {movies.length > 0 && !loading && (
-                <div className="flex justify-center mt-8">
-                  <Button onClick={loadMore} variant="outline" size="lg">
-                    Load More Movies
-                  </Button>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
+          </main>
         ) : (
-          <div>
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-2">Search Results for "{searchQuery}"</h2>
-                <p className="text-muted-foreground">
-                  {movies.length} {movies.length === 1 ? "movie" : "movies"} found
-                </p>
-              </div>
+          // LOGGED OUT: LANDING PAGE
+          <AnimatePresence mode="wait">
+            {showAISearch ? (
+              <motion.div
+                key="ai-search"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <section className="relative min-h-[80vh] flex flex-col items-center justify-center p-4">
+                  <div className="absolute inset-0 z-0">
+                    <div className="absolute inset-0 bg-gradient-to-b from-background via-background/90 to-background" />
+                    <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-20" />
+                  </div>
 
-              <div className="flex items-center gap-4">
-                <GenreFilter genres={genres} selectedGenre={selectedGenre} onGenreChange={handleGenreChange} />
+                  <div className="relative z-10 w-full max-w-5xl">
+                    <div className="text-center mb-12 space-y-4">
+                      <motion.div
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ duration: 0.5 }}
+                      >
+                        <h2 className="text-5xl md:text-7xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400">
+                          Discover Your Next Favorite
+                        </h2>
+                      </motion.div>
+                      <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                        Powered by Gemini 1.5 Pro to understand your exact mood and preferences.
+                      </p>
+                    </div>
 
-                <Select value={sortBy} onValueChange={(value) => handleSortChange(value as typeof sortBy)}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="popularity">Popularity</SelectItem>
-                    <SelectItem value="rating">Rating</SelectItem>
-                    <SelectItem value="release_date">Release Date</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+                    <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
+                      <AISearch user={user} languages={languages} />
+                    </div>
+                  </div>
+                </section>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="main-content"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                {/* Hero Section */}
+                {!searchQuery && featuredMovie && (
+                  <section className="relative h-[80vh] w-full overflow-hidden">
+                    <div className="absolute inset-0">
+                      <img
+                        src={`https://image.tmdb.org/t/p/original${featuredMovie.backdrop_path}`}
+                        alt={featuredMovie.title}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent" />
+                    </div>
 
-            {loading ? <MovieGridSkeleton /> : <MovieGrid movies={movies} loading={loading} user={user} />}
-          </div>
+                    <div className="absolute bottom-0 left-0 p-8 md:p-16 max-w-4xl space-y-6 z-10">
+                      <motion.div
+                        initial={{ y: 20, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                      >
+                        <Badge variant="secondary" className="mb-4 bg-primary/20 text-primary border-primary/20 backdrop-blur-md px-4 py-1 text-sm uppercase tracking-wider">
+                          Trending Now
+                        </Badge>
+                        <h1 className="text-5xl md:text-7xl font-bold leading-tight mb-6 text-white drop-shadow-2xl">
+                          {featuredMovie.title}
+                        </h1>
+                        <div className="flex items-center gap-4 mb-6 text-white/80">
+                          <span className="flex items-center gap-1"><Star className="h-4 w-4 text-yellow-500 fill-yellow-500" /> {featuredMovie.vote_average.toFixed(1)}</span>
+                          <span>•</span>
+                          <span>{new Date(featuredMovie.release_date).getFullYear()}</span>
+                          <span>•</span>
+                          <span className="uppercase border border-white/20 px-2 py-0.5 rounded text-xs">HD</span>
+                        </div>
+                        <p className="text-lg md:text-xl text-gray-300 line-clamp-3 mb-8 max-w-2xl leading-relaxed">
+                          {featuredMovie.overview}
+                        </p>
+                        <div className="flex flex-wrap gap-4">
+                          <Button size="lg" className="rounded-full px-8 h-12 gap-2 text-lg bg-white text-black hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.3)] transition-all hover:scale-105">
+                            <Play className="h-5 w-5 fill-current" />
+                            Watch Trailer
+                          </Button>
+                          <Button
+                            size="lg"
+                            variant="outline"
+                            className="rounded-full px-8 h-12 gap-2 text-lg bg-white/5 border-white/20 hover:bg-white/10 backdrop-blur-sm transition-all hover:scale-105"
+                            onClick={() => setShowAISearch(true)}
+                          >
+                            <Sparkles className="h-5 w-5 text-purple-400" />
+                            AI Search
+                          </Button>
+                        </div>
+                      </motion.div>
+                    </div>
+                  </section>
+                )}
+
+                {/* Main Content */}
+                <main className="container mx-auto px-4 py-12">
+                  {!searchQuery ? (
+                    <Tabs value={activeCategory} onValueChange={(value) => handleCategoryChange(value as MovieCategory)} className="space-y-12">
+                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 sticky top-20 z-30 bg-background/80 backdrop-blur-xl py-4 -mx-4 px-4 border-b border-white/5">
+                        <TabsList className="bg-white/5 border border-white/10 p-1 rounded-full w-full lg:w-auto overflow-x-auto h-12">
+                          <TabsTrigger value="popular" className="rounded-full px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Popular</TabsTrigger>
+                          <TabsTrigger value="top_rated" className="rounded-full px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Top Rated</TabsTrigger>
+                          <TabsTrigger value="now_playing" className="rounded-full px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Now Playing</TabsTrigger>
+                          <TabsTrigger value="upcoming" className="rounded-full px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Upcoming</TabsTrigger>
+                        </TabsList>
+
+                        <div className="flex flex-wrap items-center gap-4">
+                          <GenreFilter genres={genres} selectedGenre={selectedGenre} onGenreChange={handleGenreChange} />
+
+                          <Select value={sortBy} onValueChange={(value) => handleSortChange(value as typeof sortBy)}>
+                            <SelectTrigger className="w-40 rounded-full bg-white/5 border-white/10 h-10" aria-label="Sort movies">
+                              <SelectValue placeholder="Sort by" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="popularity">Popularity</SelectItem>
+                              <SelectItem value="rating">Rating</SelectItem>
+                              <SelectItem value="release_date">Release Date</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <TabsContent value={activeCategory} className="mt-0 space-y-8">
+                        <div className="flex items-center gap-3 mb-8">
+                          <div className="h-8 w-1 bg-gradient-to-b from-primary to-purple-500 rounded-full" />
+                          <div>
+                            <h2 className="text-3xl font-bold tracking-tight">{getCategoryTitle(activeCategory)}</h2>
+                            <p className="text-muted-foreground">
+                              {selectedGenre
+                                ? `Showing ${genres.find((g) => g.id === selectedGenre)?.name} movies`
+                                : `Discover the best ${getCategoryTitle(activeCategory).toLowerCase()}`}
+                            </p>
+                          </div>
+                        </div>
+
+                        {loading ? <MovieGridSkeleton /> : <MovieGrid movies={movies} loading={loading} user={user} />}
+
+                        {movies.length > 0 && !loading && (
+                          <div className="flex justify-center mt-16">
+                            <Button onClick={loadMore} variant="outline" size="lg" className="rounded-full px-10 h-12 border-white/10 hover:bg-white/5 text-lg">
+                              Load More Movies
+                            </Button>
+                          </div>
+                        )}
+                      </TabsContent>
+                    </Tabs>
+                  ) : (
+                    <div className="space-y-8">
+                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                        <div>
+                          <h2 className="text-3xl font-bold mb-2">Search Results for "{searchQuery}"</h2>
+                          <p className="text-muted-foreground">
+                            {movies.length} {movies.length === 1 ? "movie" : "movies"} found
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          <GenreFilter genres={genres} selectedGenre={selectedGenre} onGenreChange={handleGenreChange} />
+
+                          <Select value={sortBy} onValueChange={(value) => handleSortChange(value as typeof sortBy)}>
+                            <SelectTrigger className="w-40 rounded-full bg-white/5 border-white/10">
+                              <SelectValue placeholder="Sort by" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="popularity">Popularity</SelectItem>
+                              <SelectItem value="rating">Rating</SelectItem>
+                              <SelectItem value="release_date">Release Date</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {loading ? <MovieGridSkeleton /> : <MovieGrid movies={movies} loading={loading} user={user} />}
+                    </div>
+                  )}
+                </main>
+              </motion.div>
+            )}
+          </AnimatePresence>
         )}
-      </main>
+      </div>
     </div>
   )
 }

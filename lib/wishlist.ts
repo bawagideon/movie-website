@@ -18,15 +18,14 @@ export class WishlistService {
 
   async addToWishlist(movie: Movie): Promise<{ success: boolean; error?: string }> {
     try {
-      const {
-        data: { user },
-      } = await this.supabase.auth.getUser()
+      const { data: { session } } = await this.supabase.auth.getSession()
+      const user = session?.user
 
       if (!user) {
         return { success: false, error: "Please sign in to add movies to your wishlist" }
       }
 
-      const { error } = await this.supabase.from("wishlists").insert({
+      const { error } = await this.supabase.from("user_watchlists").insert({
         user_id: user.id,
         movie_id: movie.id,
         movie_title: movie.title,
@@ -38,7 +37,6 @@ export class WishlistService {
 
       if (error) {
         if (error.code === "23505") {
-          // Unique constraint violation
           return { success: false, error: "Movie is already in your wishlist" }
         }
         return { success: false, error: error.message }
@@ -52,15 +50,14 @@ export class WishlistService {
 
   async removeFromWishlist(movieId: number): Promise<{ success: boolean; error?: string }> {
     try {
-      const {
-        data: { user },
-      } = await this.supabase.auth.getUser()
+      const { data: { session } } = await this.supabase.auth.getSession()
+      const user = session?.user
 
       if (!user) {
         return { success: false, error: "Please sign in to manage your wishlist" }
       }
 
-      const { error } = await this.supabase.from("wishlists").delete().eq("user_id", user.id).eq("movie_id", movieId)
+      const { error } = await this.supabase.from("user_watchlists").delete().eq("user_id", user.id).eq("movie_id", movieId)
 
       if (error) {
         return { success: false, error: error.message }
@@ -74,16 +71,15 @@ export class WishlistService {
 
   async getWishlist(): Promise<{ items: WishlistItem[]; error?: string }> {
     try {
-      const {
-        data: { user },
-      } = await this.supabase.auth.getUser()
+      const { data: { session } } = await this.supabase.auth.getSession()
+      const user = session?.user
 
       if (!user) {
         return { items: [], error: "Please sign in to view your wishlist" }
       }
 
       const { data, error } = await this.supabase
-        .from("wishlists")
+        .from("user_watchlists")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
@@ -100,14 +96,13 @@ export class WishlistService {
 
   async isInWishlist(movieId: number): Promise<boolean> {
     try {
-      const {
-        data: { user },
-      } = await this.supabase.auth.getUser()
+      const { data: { session } } = await this.supabase.auth.getSession()
+      const user = session?.user
 
       if (!user) return false
 
       const { data, error } = await this.supabase
-        .from("wishlists")
+        .from("user_watchlists")
         .select("id")
         .eq("user_id", user.id)
         .eq("movie_id", movieId)
@@ -121,13 +116,12 @@ export class WishlistService {
 
   async getWishlistMovieIds(): Promise<number[]> {
     try {
-      const {
-        data: { user },
-      } = await this.supabase.auth.getUser()
+      const { data: { session } } = await this.supabase.auth.getSession()
+      const user = session?.user
 
       if (!user) return []
 
-      const { data, error } = await this.supabase.from("wishlists").select("movie_id").eq("user_id", user.id)
+      const { data, error } = await this.supabase.from("user_watchlists").select("movie_id").eq("user_id", user.id)
 
       if (error) return []
 

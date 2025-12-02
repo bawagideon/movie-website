@@ -97,7 +97,8 @@ export default function AISearch({ user, languages }: AISearchProps) {
       })
 
       if (!response.ok) {
-        throw new Error("Failed to get AI recommendations")
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || "Failed to get AI recommendations")
       }
 
       const data = await response.json()
@@ -166,11 +167,10 @@ export default function AISearch({ user, languages }: AISearchProps) {
                 <Badge
                   key={suggestion}
                   variant={mood === suggestion ? "default" : "outline"}
-                  className={`cursor-pointer transition-all duration-200 font-medium text-sm ${
-                    mood === suggestion
+                  className={`cursor-pointer transition-all duration-200 font-medium text-sm ${mood === suggestion
                       ? "bg-white text-black hover:bg-gray-100"
                       : "border-gray-600 text-gray-300 hover:bg-white/10 hover:border-gray-500"
-                  }`}
+                    }`}
                   onClick={() => handleMoodClick(suggestion)}
                 >
                   {suggestion}

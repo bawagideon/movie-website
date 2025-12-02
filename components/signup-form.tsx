@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader2, Film } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { formatAuthError } from "@/lib/errors"
 
@@ -18,6 +19,8 @@ export default function SignUpForm() {
   const [success, setSuccess] = useState("")
   const supabase = createClient()
 
+  const router = useRouter() // Add this hook
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -25,17 +28,21 @@ export default function SignUpForm() {
     setSuccess("")
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || window.location.origin,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       })
 
       if (error) {
         const formattedError = formatAuthError(error)
         setError(formattedError.message)
+      } else if (data.session) {
+        // User is signed in immediately (e.g. email confirm disabled)
+        router.push("/onboarding")
+        router.refresh()
       } else {
         setSuccess("Check your email to confirm your account!")
       }
@@ -61,8 +68,8 @@ export default function SignUpForm() {
 
       <form onSubmit={handleSubmit} className="space-y-6" aria-label="Sign up form">
         {error && (
-          <div 
-            className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg" 
+          <div
+            className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg"
             role="alert"
             aria-live="polite"
             aria-atomic="true"
@@ -72,7 +79,7 @@ export default function SignUpForm() {
         )}
 
         {success && (
-          <div 
+          <div
             className="bg-green-500/10 border border-green-500/50 text-green-400 px-4 py-3 rounded-lg"
             role="status"
             aria-live="polite"
@@ -136,8 +143,8 @@ export default function SignUpForm() {
 
         <div className="text-center text-gray-400">
           Already have an account?{" "}
-          <Link 
-            href="/auth/login" 
+          <Link
+            href="/auth/login"
             className="text-red-400 hover:text-red-300 font-medium"
             aria-label="Go to sign in page"
           >

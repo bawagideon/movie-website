@@ -3,7 +3,6 @@
 import { useState } from "react"
 import Image from "next/image"
 import {
-  ArrowLeft,
   Play,
   Calendar,
   Clock,
@@ -36,6 +35,13 @@ import {
 import { useRouter } from "next/navigation"
 import type { AuthUser } from "@/lib/types"
 
+// Phase 4 Components
+import { AIInsight } from "@/components/movie/ai-insight"
+import { BingePlanner } from "@/components/movie/binge-planner"
+import { SnackGenerator } from "@/components/movie/snack-generator"
+import { Zap, Tv, Armchair } from "lucide-react"
+import { useEffect } from "react"
+
 interface MovieDetailsPageProps {
   movie: MovieDetails
   credits: Credits
@@ -52,28 +58,85 @@ interface MovieDetailsPageProps {
   user: AuthUser | null
 }
 
+import { getMovieExtraDetails, getMovieCollection } from "@/app/actions"
+
+// ... imports
+
 export default function MovieDetailsPage({
   movie,
   credits,
   videos,
   images,
-  reviews,
-  similarMovies: similar,
-  recommendations,
+  reviews: initialReviews,
+  similarMovies: initialSimilarMovies,
+  recommendations: initialRecommendations,
   watchProviders,
-  keywords,
+  keywords: initialKeywords,
   externalIds,
   releaseDates,
   user,
+  collection: initialCollection,
 }: MovieDetailsPageProps) {
   const router = useRouter()
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null)
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null)
+  const [isCinemaMode, setIsCinemaMode] = useState(false)
+
+  const [extraDetails, setExtraDetails] = useState({
+    reviews: initialReviews,
+    similarMovies: initialSimilarMovies,
+    recommendations: initialRecommendations,
+    keywords: initialKeywords,
+  })
+
+  const [collectionData, setCollectionData] = useState<MovieCollection | null>(initialCollection)
+
+  useEffect(() => {
+    // If we didn't get data from props (lazy loading), fetch it now
+    if (initialReviews.length === 0 && initialSimilarMovies.length === 0) {
+      getMovieExtraDetails(movie.id).then((data) => {
+        setExtraDetails({
+          reviews: data.reviews,
+          similarMovies: data.similarMovies,
+          recommendations: data.recommendations,
+          keywords: data.keywords,
+        })
+      })
+    }
+
+    // Lazy load collection if needed
+    if (!collectionData && movie.belongs_to_collection) {
+      getMovieCollection(movie.belongs_to_collection.id).then((data) => {
+        setCollectionData(data)
+      })
+    }
+  }, [movie.id, initialReviews.length, initialSimilarMovies.length, movie.belongs_to_collection])
+
+  const reviews = extraDetails.reviews
+  const similar = extraDetails.similarMovies
+  const recommendations = extraDetails.recommendations
+  const keywords = extraDetails.keywords
+
+  // Cinema Mode Effect
+  useEffect(() => {
+    if (isCinemaMode) {
+      document.body.classList.add("cinema-mode")
+    } else {
+      document.body.classList.remove("cinema-mode")
+    }
+    return () => document.body.classList.remove("cinema-mode")
+  }, [isCinemaMode])
+
+  // Mock AI Match Score (Random for now, would be real vector similarity later)
+  const matchScore = Math.floor(Math.random() * (99 - 75) + 75)
 
   const backdropUrl = getImageUrl(movie.backdrop_path, "w1280")
   const posterUrl = getImageUrl(movie.poster_path, "w500")
-  const releaseYear = new Date(movie.release_date).getFullYear()
-  const runtime = `${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m`
+  const releaseYear = movie.release_date ? new Date(movie.release_date).getFullYear() : "N/A"
+  const runtime = movie.runtime ? `${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m` : "N/A"
+
+  const usRelease = releaseDates.results.find((r) => r.iso_3166_1 === "US")
+  const usCertification = usRelease?.release_dates.find((d) => d.certification)?.certification || "NR"
 
   const trailers = videos.filter((video) => video.type === "Trailer" && video.site === "YouTube")
   const mainTrailer = trailers.find((video) => video.official) || trailers[0]
@@ -92,6 +155,10 @@ export default function MovieDetailsPage({
   const ukWatchProviders = watchProviders.results?.GB
   const caWatchProviders = watchProviders.results?.CA
 
+  const fallbackProviders = !usWatchProviders?.flatrate
+    ? (usWatchProviders?.rent || usWatchProviders?.buy || []).slice(0, 3)
+    : []
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -100,14 +167,10 @@ export default function MovieDetailsPage({
     }).format(amount)
   }
 
-  const usCertification = releaseDates.results
-    ?.find((result) => result.iso_3166_1 === "US")
-    ?.release_dates?.find((date) => date.certification)?.certification
-
   return (
-  <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+    <div className="min-h-screen bg-background text-foreground overflow-x-hidden" >
       {/* Hero Section */}
-      <div className="relative h-[60vh] sm:h-[70vh] overflow-hidden">
+      < div className="relative h-[60vh] sm:h-[70vh] overflow-hidden" >
         <div className="absolute inset-0 w-full h-full">
           <Image
             src={backdropUrl || "/placeholder.jpg"}
@@ -121,16 +184,11 @@ export default function MovieDetailsPage({
           <div className="absolute inset-0 bg-black/60" />
         </div>
 
-        {/* Navigation */}
-        <div className="relative z-10 p-4">
-          <Button variant="ghost" onClick={() => router.back()} className="text-white hover:bg-white/20">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-        </div>
+        {/* Navigation - Back button removed in favor of global SiteHeader */}
+
 
         {/* Movie Info */}
-        <div className="relative z-10 container mx-auto px-4 h-full flex items-end pb-8">
+        <div className="relative z-10 container mx-auto px-4 h-full flex items-end pb-8" >
           <div className="flex flex-col md:flex-row gap-6 w-full">
             <div className="flex-shrink-0">
               <Image
@@ -158,9 +216,15 @@ export default function MovieDetailsPage({
               <div className="flex flex-wrap items-center gap-4 mb-4">
                 <div className="flex items-center gap-1">
                   <Star className="h-5 w-5 text-yellow-400 fill-current" />
-                  <span className="text-lg font-semibold">{movie.vote_average.toFixed(1)}</span>
-                  <span className="text-gray-300">({movie.vote_count.toLocaleString()} votes)</span>
+                  <span className="text-lg font-semibold">{movie.vote_average?.toFixed(1) || "N/A"}</span>
+                  <span className="text-gray-300">({movie.vote_count?.toLocaleString() || 0} votes)</span>
                 </div>
+                {user && (
+                  <Badge variant="outline" className="border-green-500 text-green-400 gap-1">
+                    <Zap className="h-3 w-3 fill-current" />
+                    {matchScore}% Match
+                  </Badge>
+                )}
                 <div className="flex items-center gap-1">
                   <Calendar className="h-4 w-4" />
                   <span>{releaseYear}</span>
@@ -177,32 +241,94 @@ export default function MovieDetailsPage({
                     {genre.name}
                   </Badge>
                 ))}
-              </div>
 
-              <p className="text-gray-200 mb-6 max-w-3xl leading-relaxed" style={{ fontSize: 'clamp(1.1rem, 3vw, 1.3rem)' }}>{movie.overview}</p>
+                <p className="text-gray-200 mb-6 max-w-3xl leading-relaxed" style={{ fontSize: 'clamp(1.1rem, 3vw, 1.3rem)' }}>{movie.overview}</p>
 
-              <div className="flex flex-wrap gap-4">
-                {mainTrailer && (
-                  <Button
-                    size="lg"
-                    onClick={() => setSelectedVideo(mainTrailer)}
-                    className="bg-red-600 hover:bg-red-700"
-                  >
-                    <Play className="h-5 w-5 mr-2" />
-                    Watch Trailer
-                  </Button>
-                )}
-                {director && (
-                  <div className="text-sm">
-                    <p className="text-gray-300">Directed by</p>
-                    <p className="font-semibold">{director.name}</p>
+                <div className="flex flex-wrap gap-4">
+                  {mainTrailer && (
+                    <Button
+                      size="lg"
+                      onClick={() => setSelectedVideo(mainTrailer)}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      <Play className="h-5 w-5 mr-2" />
+                      Watch Trailer
+                    </Button>
+                  )}
+
+                  {user && (
+                    <>
+                      <BingePlanner
+                        movie={movie}
+                        collection={collectionData}
+                        similarMovies={similar}
+                      />
+                      <SnackGenerator
+                        movieTitle={movie.title}
+                        movieGenre={movie.genres[0]?.name || "General"}
+                      />
+                      <Button
+                        variant={isCinemaMode ? "default" : "outline"}
+                        onClick={() => setIsCinemaMode(!isCinemaMode)}
+                        className="gap-2"
+                      >
+                        <Armchair className="h-4 w-4" />
+                        {isCinemaMode ? "Exit Cinema Mode" : "Cinema Mode"}
+                      </Button>
+                    </>
+                  )}
+                </div>
+
+                {/* Universal Streaming Gateway */}
+                {user && (usWatchProviders?.flatrate || usWatchProviders?.rent || usWatchProviders?.buy) && (
+                  <div className="mt-6 p-4 bg-white/10 rounded-xl backdrop-blur-sm border border-white/10">
+                    <h3 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                      <Tv className="h-4 w-4" />
+                      Where to Watch
+                    </h3>
+                    <div className="flex flex-wrap gap-3">
+                      {usWatchProviders?.flatrate?.map((provider) => (
+                        <a
+                          key={provider.provider_id}
+                          href={`https://www.google.com/search?q=watch ${movie.title} on ${provider.provider_name}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group relative"
+                          title={`Stream on ${provider.provider_name}`}
+                        >
+                          <img
+                            src={getImageUrl(provider.logo_path, "w92") || "/placeholder.svg"}
+                            alt={provider.provider_name}
+                            className="w-10 h-10 rounded-lg shadow-md transition-transform group-hover:scale-110"
+                          />
+                        </a>
+                      ))}
+                      {/* Fallback if no flatrate */}
+                      {fallbackProviders.map((provider) => (
+                        <a
+                          key={provider.provider_id}
+                          href={`https://www.google.com/search?q=rent ${movie.title} on ${provider.provider_name}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group relative"
+                          title={`Rent/Buy on ${provider.provider_name}`}
+                        >
+                          <img
+                            src={getImageUrl(provider.logo_path, "w92") || "/placeholder.svg"}
+                            alt={provider.provider_name}
+                            className="w-10 h-10 rounded-lg shadow-md transition-transform group-hover:scale-110 grayscale group-hover:grayscale-0"
+                          />
+                        </a>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
             </div>
           </div>
         </div>
-      </div>
+
+      </div >
 
       {/* Video Modal */}
       {selectedVideo && (
@@ -246,7 +372,19 @@ export default function MovieDetailsPage({
         </div>
       )}
 
-  <div className="container mx-auto px-2 sm:px-4 py-8 space-y-12 max-w-full">
+      <div className="container mx-auto px-2 sm:px-4 py-8 space-y-12 max-w-full">
+
+        {/* AI Insight Section */}
+        {user && (
+          <section>
+            <AIInsight
+              movieTitle={movie.title}
+              movieOverview={movie.overview}
+              className="mb-8"
+            />
+          </section>
+        )}
+
         {/* Movie Information & Box Office Section */}
         <section>
           <h2 className="text-2xl font-bold mb-6">Movie Information</h2>
@@ -262,7 +400,7 @@ export default function MovieDetailsPage({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Original Language</span>
-                  <span>{movie.original_language.toUpperCase()}</span>
+                  <span>{movie.original_language?.toUpperCase() || "N/A"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Runtime</span>
@@ -310,7 +448,7 @@ export default function MovieDetailsPage({
                 )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Popularity</span>
-                  <span>{movie.popularity.toFixed(1)}</span>
+                  <span>{movie.popularity?.toFixed(1) || "N/A"}</span>
                 </div>
               </CardContent>
             </Card>
@@ -785,6 +923,6 @@ export default function MovieDetailsPage({
           </section>
         )}
       </div>
-    </div>
+    </div >
   )
 }
